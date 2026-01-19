@@ -1,0 +1,53 @@
+services:
+  keycloak:
+    container_name: keycloak
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME=portal.bkan0n.com
+      - KC_HOSTNAME_STRICT=false
+      - KC_PROXY_HEADERS=xforwarded
+    image: quay.io/keycloak/keycloak:26.5.0
+    command: start
+    networks:
+      - caddy-network
+      - genji-network
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    restart: unless-stopped
+    command:
+      # Provider
+      - --provider=keycloak-oidc
+      - --client-id=oauth2-proxy
+      - --client-secret=${OAUTH2_PROXY_CLIENT_SECRET}
+      - --oidc-issuer-url=https://portal.bkan0n.com/realms/master
+      # Cookie
+      - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}
+      - --cookie-secure=true
+      - --cookie-domain=.bkan0n.com
+      - --cookie-name=_oauth2_proxy
+      # Proxy behavior
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --set-xauthrequest=true
+      # Access control
+      - --email-domain=*
+      - --whitelist-domain=.bkan0n.com
+      - --redirect-url=https://auth.bkan0n.com/oauth2/callback
+      # Group restriction
+      - --oidc-groups-claim=groups
+      - --allowed-group=monitoring
+      - --silence-ping-logging=true
+      - --oidc-extra-audience=account
+      - --oidc-extra-audience=master-realm
+    networks:
+      - caddy-network
+
+
+networks:
+  caddy-network:
+     external: true
+  genji-network:
+      external: true
